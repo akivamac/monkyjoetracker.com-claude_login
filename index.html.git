@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monkey Joe Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
+    <style>
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        body { background: linear-gradient(to bottom right, #0f172a, #1e1b4b, #0f172a); }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="text-center space-y-8">
+        <div class="text-8xl mb-4">🐵</div>
+        <h1 class="text-5xl font-black text-cyan-400 orbitron">MONKEY JOE</h1>
+        
+        <div class="space-y-4 mt-12">
+            <a href="./monkey-joe-tracker.html" class="block px-8 py-4 bg-cyan-500 text-slate-950 font-black text-xl rounded-lg hover:bg-cyan-400 transition transform hover:scale-105">
+                🎮 CONTROL PANEL
+            </a>
+            
+            <a href="./monkey-joe-display.html" class="block px-8 py-4 bg-green-500 text-slate-950 font-black text-xl rounded-lg hover:bg-green-400 transition transform hover:scale-105">
+                👁️ LIVE DISPLAY
+            </a>
+        </div>
+        
+        <p class="text-cyan-400/60 text-sm mt-8">Open both in different tabs • Password: 123</p>
+    </div>
+</body>
+</html>
