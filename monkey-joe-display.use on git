@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monkey Joe Live Display - Ocala, FL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        body { font-family: 'Courier Prime', monospace; }
+        .glow-cyan { text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.4); }
+        .glow-green { text-shadow: 0 0 10px rgba(0, 255, 150, 0.8), 0 0 20px rgba(0, 255, 150, 0.4); }
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .hidden { display: none; }
+        #map { border: 2px solid rgba(0, 255, 200, 0.5); border-radius: 0.5rem; }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        .float { animation: float 3s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950">
+    <!-- LOGIN -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md">
+            <div class="relative bg-slate-950/80 border-2 border-cyan-500/50 rounded-xl p-8 shadow-2xl">
+                <div class="text-center space-y-6">
+                    <div class="text-6xl mb-4">🐵</div>
+                    <h1 class="text-4xl font-black text-cyan-400 orbitron">LIVE DISPLAY</h1>
+                    <form id="loginForm" class="space-y-4">
+                        <input type="password" id="passwordInput" placeholder="••••••••" class="w-full bg-slate-900/50 border-2 border-cyan-500/50 rounded-lg px-4 py-3 text-green-400 font-mono text-lg focus:outline-none" autofocus />
+                        <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-green-500 text-slate-950 font-black py-3 rounded-lg transition hover:scale-105">AUTHENTICATE</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="hidden min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 text-slate-100">
+        <div class="bg-gradient-to-r from-slate-950/50 to-transparent border-b-2 border-cyan-500/30 sticky top-0 z-40">
+            <div class="max-w-full px-4 py-4 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-black text-cyan-400 glow-cyan orbitron">🐵 LIVE DISPLAY</h1>
+                    <p class="text-cyan-400/50 text-xs">REAL-TIME MONITORING</p>
+                </div>
+                <button id="logoutBtn" class="px-4 py-2 bg-red-950/40 border-2 border-red-500/40 rounded-lg text-red-400 text-sm font-bold">🚪 LOGOUT</button>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 space-y-4">
+                <!-- MAP -->
+                <div id="map" class="w-full aspect-video rounded-lg overflow-hidden shadow-lg"></div>
+                <p class="text-cyan-400/60 text-xs text-center">(Display Only - Controlled Remotely)</p>
+            </div>
+
+            <!-- SIDEBAR -->
+            <div class="space-y-4">
+                <!-- ALERTS -->
+                <div id="alertsContainer" class="hidden bg-red-950/30 border-2 border-red-500/50 rounded-lg p-4">
+                    <h3 class="font-bold text-red-400 mb-3 text-sm">⚠️ ALERTS</h3>
+                    <div id="alertsList" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                </div>
+
+                <!-- ZONES -->
+                <div class="bg-slate-900/40 border-2 border-cyan-500/40 rounded-lg p-4">
+                    <h3 class="font-bold text-cyan-400 text-sm mb-3">📍 PROTECTED ZONES</h3>
+                    <div id="locationsList" class="space-y-2"></div>
+                </div>
+
+                <!-- LOG -->
+                <div class="bg-slate-900/40 border-2 border-green-500/40 rounded-lg p-4">
+                    <h3 class="font-bold text-green-400 text-sm mb-3">📋 ACTIVITY LOG</h3>
+                    <div id="activityLog" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map = null, monkeyMarker = null;
+        let data = { locations: [], alerts: [], log: [], monkey: { lat: 29.1876, lng: -82.1370 } };
+
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (document.getElementById('passwordInput').value === '123') {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                initMap();
+                startSync();
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('passwordInput').value = '';
+        });
+
+        function initMap() {
+            map = L.map('map').setView([29.1876, -82.1370], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19,
+                className: 'filter brightness-75'
+            }).addTo(map);
+
+            monkeyMarker = L.marker([data.monkey.lat, data.monkey.lng], {
+                icon: L.divIcon({ html: '<div class="text-4xl float">🐵</div>', iconSize: [40, 40] })
+            }).addTo(map);
+        }
+
+        function startSync() {
+            // Load initial data immediately
+            loadDataFromStorage();
+            
+            // Then sync every 500ms
+            setInterval(() => {
+                loadDataFromStorage();
+            }, 500);
+        }
+        
+        function loadDataFromStorage() {
+            try {
+                const stored = localStorage.getItem('monkeyJoeData');
+                if (stored) {
+                    data = JSON.parse(stored);
+                    updateDisplay();
+                }
+            } catch (e) {
+                console.log('Waiting for control panel to sync data...');
+            }
+        }
+
+        function updateDisplay() {
+            if (monkeyMarker) {
+                monkeyMarker.setLatLng([data.monkey.lat, data.monkey.lng]);
+                map.setView([data.monkey.lat, data.monkey.lng], 13);
+            }
+
+            renderAlerts();
+            renderLocations();
+            renderActivityLog();
+        }
+
+        function renderAlerts() {
+            const container = document.getElementById('alertsList');
+            const alertsContainer = document.getElementById('alertsContainer');
+            
+            if (!data.alerts || data.alerts.length === 0) {
+                alertsContainer.classList.add('hidden');
+                return;
+            }
+            
+            alertsContainer.classList.remove('hidden');
+            container.innerHTML = data.alerts.map(alert => `
+                <div class="bg-red-950/60 border border-red-500/60 rounded p-3 text-xs">
+                    <p class="text-red-300 font-bold">${alert.severity}</p>
+                    <p class="text-red-200">${alert.location}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderLocations() {
+            const container = document.getElementById('locationsList');
+            container.innerHTML = (data.locations || []).map(loc => `
+                <div class="bg-slate-950/50 border border-slate-700/50 rounded p-2">
+                    <p class="text-sm font-bold">${loc.name}</p>
+                    <p class="text-xs text-slate-400">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderActivityLog() {
+            const container = document.getElementById('activityLog');
+            container.innerHTML = (data.log || []).map(log => `
+                <div class="border-l-2 border-green-500/40 pl-3 py-1.5">
+                    <p class="text-green-400/70 text-xs">${new Date(log.time).toLocaleTimeString()}</p>
+                    <p class="text-green-300/90 text-xs">${log.text}</p>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
